@@ -61,6 +61,7 @@
   .arow input{width:100%;text-align:center;padding:6px 2px;font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px}
   .arow input.ref{color:var(--base);border-color:rgba(255,93,108,.3)}
   .arow input.live{color:var(--live);border-color:rgba(91,157,255,.3)}
+  .arow input.live.lowconf{border-color:var(--warn);background:rgba(255,180,84,.14);color:var(--warn)}
   .arow input:read-only{opacity:.7;background:transparent;border-color:transparent}
   .dcell{font-family:var(--mono);font-size:9px;font-weight:700;text-align:center;border-radius:4px;padding:3px 0}
   .legend{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;margin-top:8px;color:var(--muted)}
@@ -196,7 +197,7 @@
   </div>
   <div class="body" id="body"></div>
 </div>
-<input type="file" accept="image/*" capture="environment" class="file-in" id="photo-in">
+<input type="file" accept="image/*" multiple class="file-in" id="photo-in">
 <input type="file" accept="image/*,text/plain,.log,.csv" class="file-in" id="logs-in">
 <div class="toast" id="toast"></div>
 <script>
@@ -244,6 +245,7 @@ const i18n={
   saved_ok:"Reading saved",saved_local:"Saved locally (no backend set)",need_eng:"Set engineer name in Setup first",need_live:"Enter at least one live value",
   photo_wait:"Extracting from photo…",photo_ok:"Photo extracted",photo_err:"Vision endpoint not set (Setup)",vision_fail:"Vision request failed",
   test_ok:"Backend reachable",test_fail:"Backend not reachable",no_url:"Endpoint URL not set",copied:"Copied",
+  ref_from_photo:"Set from photo",ref_saved:"Reference saved",ref_set_by:"Reference set by",ref_edit_hint:"Editing — tap “Lock reference” to save & version.",url_ref:"Save-reference webhook (optional)",lowconf_note:"low-confidence — check",
   from:"from",to:"to",on:"ON",off:"OFF"},
  ru:{kick:"RUGGLI TPA · Сер. 8311 · Меню углов",title:"Калькулятор углов",
   tab_capture:"Ввод",tab_result:"Расчёт",tab_history:"История",tab_settings:"Настройки",
@@ -266,6 +268,7 @@ const i18n={
   saved_ok:"Запись сохранена",saved_local:"Сохранено локально",need_eng:"Сначала укажите инженера",need_live:"Введите хотя бы одно значение",
   photo_wait:"Распознавание…",photo_ok:"Фото распознано",photo_err:"Эндпоинт не задан",vision_fail:"Ошибка распознавания",
   test_ok:"Сервер доступен",test_fail:"Сервер недоступен",no_url:"URL не задан",copied:"Скопировано",
+  ref_from_photo:"Задать с фото",ref_saved:"Эталон сохранён",ref_set_by:"Эталон задал",ref_edit_hint:"Редактирование — нажмите «Заблокировать», чтобы сохранить и версионировать.",url_ref:"Вебхук эталона (опц.)",lowconf_note:"низкая уверенность — проверьте",
   from:"с",to:"на",on:"ON",off:"OFF"},
  he:{kick:"RUGGLI TPA · מס׳ 8311 · תפריט זוויות",title:"מחשבון זוויות",
   tab_capture:"קליטה",tab_result:"חישוב",tab_history:"היסטוריה",tab_settings:"הגדרות",
@@ -288,6 +291,7 @@ const i18n={
   saved_ok:"הקריאה נשמרה",saved_local:"נשמר מקומית",need_eng:"הגדירו טכנאי בהגדרות",need_live:"הזינו לפחות ערך אחד",
   photo_wait:"מזהה מתמונה…",photo_ok:"התמונה זוהתה",photo_err:"נקודת קצה לא הוגדרה",vision_fail:"בקשת זיהוי נכשלה",
   test_ok:"השרת זמין",test_fail:"השרת לא זמין",no_url:"URL לא הוגדר",copied:"הועתק",
+  ref_from_photo:"קביעה מתמונה",ref_saved:"הייחוס נשמר",ref_set_by:"הייחוס נקבע ע״י",ref_edit_hint:"במצב עריכה — הקישו «נעילה» כדי לשמור ולתעד גרסה.",url_ref:"וובהוק ייחוס (רשות)",lowconf_note:"ביטחון נמוך — לבדוק",
   from:"מ-",to:"ל-",on:"ON",off:"OFF"},
 };
 const SEV_COLOR={match:"#4de8b2",tiny:"#5b9dff",minor:"#ffb454",major:"#ff5d6c"};
@@ -297,14 +301,18 @@ const LS='tpa_angle_calc_v1';
 function loadStore(){try{return JSON.parse(localStorage.getItem(LS))||{}}catch(e){return{}}}
 function saveStore(s){try{localStorage.setItem(LS,JSON.stringify(s))}catch(e){}}
 let store=loadStore();
-store.cfg=store.cfg||{engineer:"",urls:{save:"",hist:"",vision:"",logs:""}};
+store.cfg=store.cfg||{engineer:"",urls:{}};
+store.cfg.urls=Object.assign({save:"",hist:"",vision:"",logs:"",ref:""},store.cfg.urls||{});
 store.refByLine=store.refByLine||{};
+store.refMeta=store.refMeta||{};      // per line: {set_by, at, source} for reference versioning
 store.readings=store.readings||[];   // local fallback cache
 let currentLang=store.cfg.lang||'en';
 let tab='capture';
 let line=store.cfg.lastLine||40; if(!LINES.includes(line))line=40;
 let tType=store.cfg.lastType||'SUPER';
 let live={}; ANGLES.forEach(a=>live[a.id]={on:'',off:''});
+let lowConf={};                       // {id:{on,off}} — low-confidence flags from last photo read (transient)
+let photoMode='live';                 // 'live' | 'ref' — which target the shared photo input fills
 let refEdit=false;
 let pendingLogs=null;
 let lastResult=null;
@@ -384,16 +392,26 @@ function angleGrid(){
         <span class="nm">${a.name}${a.crit?' <span class="cr">●</span>':''}</span>
         <input class="ref" ${ro} inputmode="numeric" value="${ref[a.id].on}" onchange="setRef(${a.id},'on',this.value)">
         <input class="ref" ${ro} inputmode="numeric" value="${ref[a.id].off}" onchange="setRef(${a.id},'off',this.value)">
-        <input class="live" inputmode="numeric" value="${live[a.id].on}" placeholder="–" onchange="setLive(${a.id},'on',this.value)">
-        <input class="live" inputmode="numeric" value="${live[a.id].off}" placeholder="–" onchange="setLive(${a.id},'off',this.value)">
+        <input id="lon${a.id}" class="live${lowConf[a.id]&&lowConf[a.id].on?' lowconf':''}" inputmode="numeric" value="${live[a.id].on}" placeholder="–" onchange="setLive(${a.id},'on',this.value)">
+        <input id="loff${a.id}" class="live${lowConf[a.id]&&lowConf[a.id].off?' lowconf':''}" inputmode="numeric" value="${live[a.id].off}" placeholder="–" onchange="setLive(${a.id},'off',this.value)">
         ${dtxt}</div>`;
     }).join('');
+}
+function refMetaLine(){
+  const m=store.refMeta[line];
+  if(!m||!m.at) return '';
+  return `<div class="hint" style="color:var(--live)">${T().ref_set_by}: <b>${m.set_by||'—'}</b> · ${new Date(m.at).toLocaleString()}${m.source?' · '+m.source:''}</div>`;
 }
 function captureView(){
   return selectorsCard()+
    `<div class="card"><h3>${T().ref_title}</h3>
-      <button class="btn ghost" onclick="toggleRefEdit()">${refEdit?T().ref_lock:T().ref_edit}</button>
-      <div class="hint">${T().ref_hint}</div></div>
+      <div class="btnrow">
+        <button class="btn ghost" onclick="toggleRefEdit()">${refEdit?T().ref_lock:T().ref_edit}</button>
+        <button class="btn ghost" onclick="doRefPhoto()">📷 ${T().ref_from_photo}</button>
+      </div>
+      ${refMetaLine()}
+      <div class="hint">${T().ref_hint}</div>
+      ${refEdit?`<div class="hint" style="color:var(--warn)">${T().ref_edit_hint}</div>`:''}</div>
     <div class="card"><h3>${T().live_title}</h3>
       <div class="btnrow">
         <button class="btn" onclick="doPhoto()">📷 ${T().photo_btn}</button>
@@ -474,6 +492,7 @@ function settingsView(){
       <div class="field"><label>${T().url_hist}</label><input type="text" value="${u.hist||''}" placeholder="https://…/webhook/get-history" oninput="setUrl('hist',this.value)"></div>
       <div class="field"><label>${T().url_vision}</label><input type="text" value="${u.vision||''}" placeholder="https://…/webhook/extract-angles" oninput="setUrl('vision',this.value)"></div>
       <div class="field"><label>${T().url_logs}</label><input type="text" value="${u.logs||''}" placeholder="https://…/webhook/parse-logs" oninput="setUrl('logs',this.value)"></div>
+      <div class="field"><label>${T().url_ref}</label><input type="text" value="${u.ref||''}" placeholder="https://…/webhook/save-reference" oninput="setUrl('ref',this.value)"></div>
       <div class="btnrow"><button class="btn ghost" onclick="testConn()">${T().test_btn}</button></div>
       <div class="btnrow">
         <button class="btn ghost" onclick="exportAll()">⭳ ${T().export_btn}</button>
@@ -494,16 +513,44 @@ function setEng(v){store.cfg.engineer=v;saveStore(store);updateConn();}
 function setLine(v){line=+v;store.cfg.lastLine=line;ref=refFor(line);clearLiveSilent();saveStore(store);render();}
 function setType(v){tType=v;store.cfg.lastType=v;saveStore(store);}
 function setRef(id,f,v){ref[id][f]=+v||0;store.refByLine[line]=ref;saveStore(store);}
-function setLive(id,f,v){live[id][f]=v.trim();patchDelta(id);}
+function setLive(id,f,v){
+  live[id][f]=v.trim();
+  // Engineer has reviewed/edited this field — clear any low-confidence flag on it.
+  if(lowConf[id]&&lowConf[id][f]){lowConf[id][f]=false;document.getElementById((f==='on'?'lon':'loff')+id)?.classList.remove('lowconf');}
+  patchDelta(id);
+}
 function patchDelta(id){
   const cell=document.getElementById('d'+id); if(!cell)return;
   const d=driftFor(id);
   if(d){cell.textContent=d.max+'°';cell.style.color=SEV_COLOR[d.sev];cell.style.background=SEV_COLOR[d.sev]+'1c';}
   else{cell.textContent='–';cell.style.color='var(--dim)';cell.style.background='transparent';}
 }
-function clearLiveSilent(){ANGLES.forEach(a=>live[a.id]={on:'',off:''});}
+function clearLiveSilent(){ANGLES.forEach(a=>live[a.id]={on:'',off:''});lowConf={};}
 function clearLive(){clearLiveSilent();render();}
-function toggleRefEdit(){refEdit=!refEdit;render();}
+function toggleRefEdit(){
+  // Locking a manual edit commits the reference (records set_by + timestamp, posts for versioning).
+  if(refEdit){commitRef('manual-edit');toast(T().ref_saved);}
+  refEdit=!refEdit;render();
+}
+// Persist the current reference set for this line, stamp who/when, and POST it
+// for versioning into angle_references if a reference endpoint is configured.
+function commitRef(source){
+  store.refByLine[line]=ref;
+  store.refMeta[line]={set_by:store.cfg.engineer||'',at:new Date().toISOString(),source:source};
+  saveStore(store);
+  postReference(source);
+}
+async function postReference(source){
+  if(!store.cfg.urls.ref)return;
+  try{
+    await fetch(store.cfg.urls.ref,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        machine_type:"ruggli_tpa_angle",machine_serial:"8311",line:"L"+line,
+        engineer_id:store.cfg.engineer,engineer_name:store.cfg.engineer,set_by:store.cfg.engineer||'',
+        timestamp:new Date().toISOString(),source:source,reference_set:ref
+      })});
+  }catch(e){}
+}
 window.setEng=setEng;window.setLine=setLine;window.setType=setType;window.setRef=setRef;window.setLive=setLive;window.clearLive=clearLive;window.toggleRefEdit=toggleRefEdit;
 
 function lastSaved(){const r=histFor(line);return r.length?r[0]:null;}
@@ -573,28 +620,55 @@ async function loadHistory(){
 }
 window.loadHistory=loadHistory;
 
-// Photo → vision webhook
+// Photo → vision webhook. The shared input fills either the LIVE values (doPhoto)
+// or the line's REFERENCE set from the red BASE screen (doRefPhoto).
 function doPhoto(){
   if(!store.cfg.urls.vision){toast(T().photo_err);tab='settings';document.querySelectorAll('.tab')[3].click();return;}
-  document.getElementById('photo-in').click();
+  photoMode='live';document.getElementById('photo-in').click();
 }
 window.doPhoto=doPhoto;
+function doRefPhoto(){
+  if(!store.cfg.urls.vision){toast(T().photo_err);tab='settings';document.querySelectorAll('.tab')[3].click();return;}
+  photoMode='ref';document.getElementById('photo-in').click();
+}
+window.doRefPhoto=doRefPhoto;
 document.getElementById('photo-in').onchange=async function(){
-  const f=this.files[0]; if(!f)return;
+  const files=[...this.files]; this.value=''; if(!files.length)return;
+  const mode=photoMode; photoMode='live';
   toast(T().photo_wait);
-  const b64=await fileB64(f);
-  try{
-    const r=await fetch(store.cfg.urls.vision,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({machine_type:"ruggli_tpa_angle",line:"L"+line,image_base64:b64,mime:f.type})});
-    if(!r.ok)throw 0;
-    const data=await r.json();
-    // expected: { angles: { "1":{on,off,confidence}, ... } }
-    const ang=data.angles||data;
-    ANGLES.forEach(a=>{const v=ang[a.id]||ang[String(a.id)];if(v){if(v.on!=null)live[a.id].on=String(v.on);if(v.off!=null)live[a.id].off=String(v.off);}});
-    if(data.source!=='manual')pendingLogs=Object.assign(pendingLogs||{},{src:'photo'});
-    toast(T().photo_ok);render();
-  }catch(e){toast(T().vision_fail);}
-  this.value='';
+  let ok=0,fail=0,low=0;
+  // Each photo is posted to the vision webhook; results merge (later photos win per angle).
+  for(const f of files){
+    let data;
+    try{
+      const b64=await fileB64(f);
+      const r=await fetch(store.cfg.urls.vision,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({machine_type:"ruggli_tpa_angle",line:"L"+line,image_base64:b64,mime:f.type})});
+      if(!r.ok)throw 0;
+      data=await r.json();
+    }catch(e){fail++;continue;}
+    const ang=data.angles||data;   // expected { "3":{on,off,confidence}, ... }
+    ANGLES.forEach(a=>{
+      const v=ang[a.id]||ang[String(a.id)]; if(!v)return;
+      const conf=v.confidence==null?1:+v.confidence;   // no confidence → treat as certain
+      if(mode==='ref'){
+        if(v.on!=null)ref[a.id].on=+v.on||0;
+        if(v.off!=null)ref[a.id].off=+v.off||0;
+      }else{
+        lowConf[a.id]=lowConf[a.id]||{on:false,off:false};
+        if(v.on!=null){live[a.id].on=String(v.on);lowConf[a.id].on=conf<0.6;}
+        if(v.off!=null){live[a.id].off=String(v.off);lowConf[a.id].off=conf<0.6;}
+        if(conf<0.6)low++;
+      }
+    });
+    if(mode==='live'&&data.source!=='manual')pendingLogs=Object.assign(pendingLogs||{},{src:'photo'});
+    ok++;
+  }
+  if(mode==='ref'){
+    if(ok){commitRef('photo');toast(T().ref_saved);}else{toast(T().vision_fail);}
+  }else if(!ok){toast(T().vision_fail);}
+  else{toast(low>0?(T().photo_ok+' · '+low+' '+T().lowconf_note):T().photo_ok);}
+  render();
 };
 // Logs (separate button): attach text or file
 function doLogs(){document.getElementById('logs-in').click();}
@@ -624,10 +698,10 @@ window.exportAll=exportAll;
 function importAll(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);store=Object.assign(store,d);saveStore(store);toast('OK');render();}catch(e){toast('ERR');}};r.readAsText(f);}
 window.importAll=importAll;
 
-const CONTRACT=`POST {save}  →  Postgres INSERT
+const CONTRACT=`POST {save}  →  Postgres INSERT (angle_readings)
 {
   machine_type:"ruggli_tpa_angle", machine_serial:"8311",
-  line:"L47", engineer_id, engineer_name, timestamp(ISO),
+  line:"L40", engineer_id, engineer_name, timestamp(ISO),
   tampon_type, source:"manual"|"photo",
   reference_set:{ "3":{on,off}, ... },
   live:{ "3":{on,off|null}, ... },
@@ -636,9 +710,13 @@ const CONTRACT=`POST {save}  →  Postgres INSERT
   changes_since_previous:[ {angle,field,from,to} ],
   logs:{ text, attached }, image_ref
 }
-GET  {hist}?line=L47  →  [ reading, ... ] (newest first)
-POST {vision}  { image_base64, line }
-     →  { angles:{ "3":{on,off,confidence}, ... } }
+GET  {hist}?line=L40  →  [ reading, ... ] (newest first)
+POST {vision}  { machine_type, line, image_base64, mime }
+     →  { angles:{ "3":{on,off,confidence}, ... }, screen, source }
+POST {ref}     →  angle_references (versioned BASE per line)
+{ machine_type, machine_serial, line, set_by,
+  engineer_id, engineer_name, timestamp(ISO),
+  source:"photo"|"manual-edit", reference_set:{ "3":{on,off}, ... } }
 POST {logs}    { text|image_base64 } → { parsed }`;
 
 // init
