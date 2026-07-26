@@ -61,7 +61,7 @@
   .arow input{width:100%;text-align:center;padding:6px 2px;font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px}
   .arow input.ref{color:var(--base);border-color:rgba(255,93,108,.3)}
   .arow input.live{color:var(--live);border-color:rgba(91,157,255,.3)}
-  .arow input.live.lowconf{border-color:var(--warn);background:rgba(255,180,84,.14);color:var(--warn)}
+  .arow input.live.lowc{border-color:#ffb454;background:rgba(255,180,84,.14);box-shadow:0 0 0 1px rgba(255,180,84,.45) inset}
   .arow input:read-only{opacity:.7;background:transparent;border-color:transparent}
   .dcell{font-family:var(--mono);font-size:9px;font-weight:700;text-align:center;border-radius:4px;padding:3px 0}
   .legend{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;margin-top:8px;color:var(--muted)}
@@ -198,6 +198,7 @@
   <div class="body" id="body"></div>
 </div>
 <input type="file" accept="image/*" multiple class="file-in" id="photo-in">
+<input type="file" accept="image/*" multiple class="file-in" id="ref-photo-in">
 <input type="file" accept="image/*,text/plain,.log,.csv" class="file-in" id="logs-in">
 <div class="toast" id="toast"></div>
 <script>
@@ -215,8 +216,8 @@ const ANGLES=[
  {id:10,name:"START TUBES TRANSFER",base:{on:0,off:0},crit:false},
  {id:11,name:"WINDING DRUM REJECT",base:{on:10,off:60},crit:true},
  {id:12,name:"STOP POSITION",base:{on:200,off:240},crit:false},
- {id:13,name:"ANGLE 13 (SPARE)",base:{on:0,off:0},crit:false},
- {id:14,name:"WINDING DRUM BLOWING CLEAR",base:{on:0,off:0},crit:false},
+ {id:13,name:"ANGLE 13",base:{on:0,off:0},crit:false},
+ {id:14,name:"WINDING DRUM BOW OUT",base:{on:0,off:0},crit:false},
  {id:15,name:"CLEANING SENSOR",base:{on:350,off:360},crit:true},
 ];
 const LINES=[40,41,42,43,44,45];
@@ -245,7 +246,7 @@ const i18n={
   saved_ok:"Reading saved",saved_local:"Saved locally (no backend set)",need_eng:"Set engineer name in Setup first",need_live:"Enter at least one live value",
   photo_wait:"Extracting from photo…",photo_ok:"Photo extracted",photo_err:"Vision endpoint not set (Setup)",vision_fail:"Vision request failed",
   test_ok:"Backend reachable",test_fail:"Backend not reachable",no_url:"Endpoint URL not set",copied:"Copied",
-  ref_from_photo:"Set from photo",ref_saved:"Reference saved",ref_set_by:"Reference set by",ref_edit_hint:"Editing — tap “Lock reference” to save & version.",url_ref:"Save-reference webhook (optional)",lowconf_note:"low-confidence — check",
+  ref_photo_btn:"Set reference from BASE photo",ref_set_ok:"Reference set",ref_by:"Reference set by",ref_note_notbase:"⚠ not the red BASE screen — verify",lowconf_hint:"Amber = low-confidence read, verify.",ref_edit_hint:"Editing — tap “Lock reference” to save & version.",url_ref:"Save-reference webhook (optional)",
   from:"from",to:"to",on:"ON",off:"OFF"},
  ru:{kick:"RUGGLI TPA · Сер. 8311 · Меню углов",title:"Калькулятор углов",
   tab_capture:"Ввод",tab_result:"Расчёт",tab_history:"История",tab_settings:"Настройки",
@@ -268,7 +269,7 @@ const i18n={
   saved_ok:"Запись сохранена",saved_local:"Сохранено локально",need_eng:"Сначала укажите инженера",need_live:"Введите хотя бы одно значение",
   photo_wait:"Распознавание…",photo_ok:"Фото распознано",photo_err:"Эндпоинт не задан",vision_fail:"Ошибка распознавания",
   test_ok:"Сервер доступен",test_fail:"Сервер недоступен",no_url:"URL не задан",copied:"Скопировано",
-  ref_from_photo:"Задать с фото",ref_saved:"Эталон сохранён",ref_set_by:"Эталон задал",ref_edit_hint:"Редактирование — нажмите «Заблокировать», чтобы сохранить и версионировать.",url_ref:"Вебхук эталона (опц.)",lowconf_note:"низкая уверенность — проверьте",
+  ref_photo_btn:"Эталон с фото BASE",ref_set_ok:"Эталон сохранён",ref_by:"Эталон задал",ref_note_notbase:"⚠ не красный экран BASE — проверьте",lowconf_hint:"Янтарный = низкая уверенность, проверьте.",ref_edit_hint:"Редактирование — нажмите «Заблокировать», чтобы сохранить и версионировать.",url_ref:"Вебхук эталона (опц.)",
   from:"с",to:"на",on:"ON",off:"OFF"},
  he:{kick:"RUGGLI TPA · מס׳ 8311 · תפריט זוויות",title:"מחשבון זוויות",
   tab_capture:"קליטה",tab_result:"חישוב",tab_history:"היסטוריה",tab_settings:"הגדרות",
@@ -291,7 +292,7 @@ const i18n={
   saved_ok:"הקריאה נשמרה",saved_local:"נשמר מקומית",need_eng:"הגדירו טכנאי בהגדרות",need_live:"הזינו לפחות ערך אחד",
   photo_wait:"מזהה מתמונה…",photo_ok:"התמונה זוהתה",photo_err:"נקודת קצה לא הוגדרה",vision_fail:"בקשת זיהוי נכשלה",
   test_ok:"השרת זמין",test_fail:"השרת לא זמין",no_url:"URL לא הוגדר",copied:"הועתק",
-  ref_from_photo:"קביעה מתמונה",ref_saved:"הייחוס נשמר",ref_set_by:"הייחוס נקבע ע״י",ref_edit_hint:"במצב עריכה — הקישו «נעילה» כדי לשמור ולתעד גרסה.",url_ref:"וובהוק ייחוס (רשות)",lowconf_note:"ביטחון נמוך — לבדוק",
+  ref_photo_btn:"קביעת ייחוס מצילום BASE",ref_set_ok:"הייחוס נשמר",ref_by:"הייחוס נקבע ע״י",ref_note_notbase:"⚠ לא מסך BASE האדום — לבדוק",lowconf_hint:"כתום = קריאה בביטחון נמוך, לבדוק.",ref_edit_hint:"במצב עריכה — הקישו «נעילה» כדי לשמור ולתעד גרסה.",url_ref:"וובהוק ייחוס (רשות)",
   from:"מ-",to:"ל-",on:"ON",off:"OFF"},
 };
 const SEV_COLOR={match:"#4de8b2",tiny:"#5b9dff",minor:"#ffb454",major:"#ff5d6c"};
@@ -316,15 +317,14 @@ store.cfg = store.cfg || { engineer:"", urls:{} };
 store.cfg.urls = store.cfg.urls || {};
 ['save','hist','vision','logs','ref'].forEach(k => { if (!store.cfg.urls[k]) store.cfg.urls[k] = DEFAULT_URLS[k]; });
 store.refByLine=store.refByLine||{};
-store.refMeta=store.refMeta||{};      // per line: {set_by, at, source} for reference versioning
+store.refMetaByLine=store.refMetaByLine||{};   // per line: {set_by, ts, source, screen}
 store.readings=store.readings||[];   // local fallback cache
 let currentLang=store.cfg.lang||'en';
 let tab='capture';
 let line=store.cfg.lastLine||40; if(!LINES.includes(line))line=40;
 let tType=store.cfg.lastType||'SUPER';
 let live={}; ANGLES.forEach(a=>live[a.id]={on:'',off:''});
-let lowConf={};                       // {id:{on,off}} — low-confidence flags from last photo read (transient)
-let photoMode='live';                 // 'live' | 'ref' — which target the shared photo input fills
+let lowConf={}; ANGLES.forEach(a=>lowConf[a.id]={on:false,off:false});   // mirrors live; amber flag from last photo read
 let refEdit=false;
 let pendingLogs=null;
 let lastResult=null;
@@ -404,22 +404,22 @@ function angleGrid(){
         <span class="nm">${a.name}${a.crit?' <span class="cr">●</span>':''}</span>
         <input class="ref" ${ro} inputmode="numeric" value="${ref[a.id].on}" onchange="setRef(${a.id},'on',this.value)">
         <input class="ref" ${ro} inputmode="numeric" value="${ref[a.id].off}" onchange="setRef(${a.id},'off',this.value)">
-        <input id="lon${a.id}" class="live${lowConf[a.id]&&lowConf[a.id].on?' lowconf':''}" inputmode="numeric" value="${live[a.id].on}" placeholder="–" onchange="setLive(${a.id},'on',this.value)">
-        <input id="loff${a.id}" class="live${lowConf[a.id]&&lowConf[a.id].off?' lowconf':''}" inputmode="numeric" value="${live[a.id].off}" placeholder="–" onchange="setLive(${a.id},'off',this.value)">
+        <input id="lon${a.id}" class="live${lowConf[a.id].on?' lowc':''}" inputmode="numeric" value="${live[a.id].on}" placeholder="–" onchange="setLive(${a.id},'on',this.value)">
+        <input id="loff${a.id}" class="live${lowConf[a.id].off?' lowc':''}" inputmode="numeric" value="${live[a.id].off}" placeholder="–" onchange="setLive(${a.id},'off',this.value)">
         ${dtxt}</div>`;
     }).join('');
 }
 function refMetaLine(){
-  const m=store.refMeta[line];
-  if(!m||!m.at) return '';
-  return `<div class="hint" style="color:var(--live)">${T().ref_set_by}: <b>${m.set_by||'—'}</b> · ${new Date(m.at).toLocaleString()}${m.source?' · '+m.source:''}</div>`;
+  const m=store.refMetaByLine[line];
+  if(!m||!m.ts) return '';
+  return `<div class="hint" style="color:var(--ok)">✓ ${T().ref_by}: <b>${m.set_by||'—'}</b> · ${new Date(m.ts).toLocaleString()}</div>`;
 }
 function captureView(){
   return selectorsCard()+
    `<div class="card"><h3>${T().ref_title}</h3>
       <div class="btnrow">
         <button class="btn ghost" onclick="toggleRefEdit()">${refEdit?T().ref_lock:T().ref_edit}</button>
-        <button class="btn ghost" onclick="doRefPhoto()">📷 ${T().ref_from_photo}</button>
+        <button class="btn ghost" onclick="doRefPhoto()">📷 ${T().ref_photo_btn}</button>
       </div>
       ${refMetaLine()}
       <div class="hint">${T().ref_hint}</div>
@@ -436,6 +436,7 @@ function captureView(){
         <span class="cr" style="color:var(--fail)">●</span> crit</span>
       </div>
       <div class="hint">${T().manual_hint}</div>
+      <div class="hint" style="color:#ffb454">${T().lowconf_hint}</div>
       ${pendingLogs!=null?`<div class="hint" style="color:var(--ok)">✓ ${T().logs_attached}</div>`:''}
       <div class="btnrow" style="margin-top:12px">
         <button class="btn ghost" onclick="clearLive()">${T().clear_btn}</button>
@@ -528,7 +529,7 @@ function setRef(id,f,v){ref[id][f]=+v||0;store.refByLine[line]=ref;saveStore(sto
 function setLive(id,f,v){
   live[id][f]=v.trim();
   // Engineer has reviewed/edited this field — clear any low-confidence flag on it.
-  if(lowConf[id]&&lowConf[id][f]){lowConf[id][f]=false;document.getElementById((f==='on'?'lon':'loff')+id)?.classList.remove('lowconf');}
+  if(lowConf[id]&&lowConf[id][f]){lowConf[id][f]=false;document.getElementById((f==='on'?'lon':'loff')+id)?.classList.remove('lowc');}
   patchDelta(id);
 }
 function patchDelta(id){
@@ -537,18 +538,18 @@ function patchDelta(id){
   if(d){cell.textContent=d.max+'°';cell.style.color=SEV_COLOR[d.sev];cell.style.background=SEV_COLOR[d.sev]+'1c';}
   else{cell.textContent='–';cell.style.color='var(--dim)';cell.style.background='transparent';}
 }
-function clearLiveSilent(){ANGLES.forEach(a=>live[a.id]={on:'',off:''});lowConf={};}
+function clearLiveSilent(){ANGLES.forEach(a=>{live[a.id]={on:'',off:''};lowConf[a.id]={on:false,off:false};});}
 function clearLive(){clearLiveSilent();render();}
 function toggleRefEdit(){
   // Locking a manual edit commits the reference (records set_by + timestamp, posts for versioning).
-  if(refEdit){commitRef('manual-edit');toast(T().ref_saved);}
+  if(refEdit){commitRef('manual-edit');toast(T().ref_set_ok);}
   refEdit=!refEdit;render();
 }
-// Persist the current reference set for this line, stamp who/when, and POST it
-// for versioning into angle_references if a reference endpoint is configured.
-function commitRef(source){
+// Persist the current reference set for this line, stamp who/when/screen, and
+// POST it for versioning into angle_references if a reference endpoint is set.
+function commitRef(source,screen){
   store.refByLine[line]=ref;
-  store.refMeta[line]={set_by:store.cfg.engineer||'',at:new Date().toISOString(),source:source};
+  store.refMetaByLine[line]={set_by:store.cfg.engineer||'',ts:new Date().toISOString(),source:source,screen:screen};
   saveStore(store);
   postReference(source);
 }
@@ -632,49 +633,84 @@ async function loadHistory(){
 }
 window.loadHistory=loadHistory;
 
-// Photo → vision webhook. The shared input fills either the LIVE values (doPhoto)
-// or the line's REFERENCE set from the red BASE screen (doRefPhoto).
+// Resize + re-encode a phone photo to a bounded JPEG. Phone shots are large and
+// often HEIC, which breaks the vision call; drawing to a canvas normalises them.
+// Falls back to the raw file on any decode/encode error.
+function imgToJpegB64(file,maxDim){
+  return new Promise(resolve=>{
+    const fallback=()=>fileB64(file).then(b64=>resolve({b64,mime:file.type}));
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        const scale=Math.min(1,maxDim/Math.max(w,h));
+        w=Math.max(1,Math.round(w*scale)); h=Math.max(1,Math.round(h*scale));
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        const dataUrl=c.toDataURL('image/jpeg',0.85);
+        URL.revokeObjectURL(url);
+        resolve({b64:dataUrl.split(',')[1],mime:'image/jpeg'});
+      }catch(e){URL.revokeObjectURL(url);fallback();}
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);fallback();};
+    img.src=url;
+  });
+}
+// Batch 1–3 screen photos (angles 1–6, 7–12, 13–15) into ONE vision call.
+async function extractAngles(files){
+  const images=await Promise.all(files.map(async f=>{const {b64,mime}=await imgToJpegB64(f,1600);return {image_base64:b64,mime};}));
+  const r=await fetch(store.cfg.urls.vision,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({machine_type:"ruggli_tpa_angle",line:"L"+line,images})});
+  if(!r.ok)throw 0;
+  return r.json();   // { angles:{ "3":{on,off,confidence}, ... }, screen, source }
+}
+// --- LIVE capture (blue ANGLE AT MACHINE screen) ---
 function doPhoto(){
   if(!store.cfg.urls.vision){toast(T().photo_err);tab='settings';document.querySelectorAll('.tab')[3].click();return;}
-  photoMode='live';document.getElementById('photo-in').click();
+  document.getElementById('photo-in').click();
 }
 window.doPhoto=doPhoto;
-function doRefPhoto(){
-  if(!store.cfg.urls.vision){toast(T().photo_err);tab='settings';document.querySelectorAll('.tab')[3].click();return;}
-  photoMode='ref';document.getElementById('photo-in').click();
-}
-window.doRefPhoto=doRefPhoto;
 document.getElementById('photo-in').onchange=async function(){
   const files=[...this.files]; this.value=''; if(!files.length)return;
-  const mode=photoMode; photoMode='live';
   toast(T().photo_wait);
-  // The angle menu spans up to three screens (1–6, 7–12, 13–15). Batch every
-  // selected photo into ONE vision call — the backend reads the images array.
   let data;
-  try{
-    const images=await Promise.all(files.map(async f=>({image_base64:await fileB64(f),mime:f.type})));
-    const r=await fetch(store.cfg.urls.vision,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({machine_type:"ruggli_tpa_angle",line:"L"+line,images})});
-    if(!r.ok)throw 0;
-    data=await r.json();
-  }catch(e){toast(T().vision_fail);return;}
-  const ang=data.angles||data;   // expected { "3":{on,off,confidence}, ... }
+  try{ data=await extractAngles(files); }catch(e){ toast(T().vision_fail); return; }
+  const ang=data.angles||data;
   let filled=0;
   ANGLES.forEach(a=>{
     const v=ang[a.id]||ang[String(a.id)]; if(!v)return;
-    const conf=v.confidence==null?1:+v.confidence;   // no confidence → treat as certain
-    if(mode==='ref'){
-      if(v.on!=null){ref[a.id].on=+v.on||0;filled++;}
-      if(v.off!=null){ref[a.id].off=+v.off||0;filled++;}
-    }else{
-      lowConf[a.id]=lowConf[a.id]||{on:false,off:false};
-      if(v.on!=null){live[a.id].on=String(v.on);lowConf[a.id].on=conf<0.6;filled++;}
-      if(v.off!=null){live[a.id].off=String(v.off);lowConf[a.id].off=conf<0.6;filled++;}
-    }
+    const low = v.confidence!=null && +v.confidence<0.6;
+    if(v.on!=null){live[a.id].on=String(v.on);lowConf[a.id].on=low;filled++;}
+    if(v.off!=null){live[a.id].off=String(v.off);lowConf[a.id].off=low;filled++;}
   });
-  if(mode==='live'&&data.source!=='manual')pendingLogs=Object.assign(pendingLogs||{},{src:'photo'});
-  if(mode==='ref'){commitRef('photo');toast(T().ref_saved);}
-  else{toast(T().photo_ok+' ('+files.length+'→'+filled+'×)');}
+  if(data.source!=='manual')pendingLogs=Object.assign(pendingLogs||{},{src:'photo'});
+  toast(T().photo_ok+' ('+files.length+'→'+filled+'×)');
+  render();
+};
+// --- REFERENCE capture (red BASE ANGLE screen) → writes the reference set ---
+function doRefPhoto(){
+  if(!store.cfg.urls.vision){toast(T().photo_err);tab='settings';document.querySelectorAll('.tab')[3].click();return;}
+  if(!store.cfg.engineer){toast(T().need_eng);return;}
+  document.getElementById('ref-photo-in').click();
+}
+window.doRefPhoto=doRefPhoto;
+document.getElementById('ref-photo-in').onchange=async function(){
+  const files=[...this.files]; this.value=''; if(!files.length)return;
+  toast(T().photo_wait);
+  let data;
+  try{ data=await extractAngles(files); }catch(e){ toast(T().vision_fail); return; }
+  const ang=data.angles||data;
+  let filled=0;
+  ANGLES.forEach(a=>{
+    const v=ang[a.id]||ang[String(a.id)]; if(!v)return;
+    if(v.on!=null){ref[a.id].on=+v.on||0;filled++;}
+    if(v.off!=null){ref[a.id].off=+v.off||0;filled++;}
+  });
+  commitRef('photo',data.screen);   // persist refByLine + refMetaByLine, POST version if configured
+  let msg=T().ref_set_ok+' ('+filled+'×)';
+  if(data.screen!=='base') msg+=' · '+T().ref_note_notbase;
+  toast(msg);
   render();
 };
 // Logs (separate button): attach text or file
