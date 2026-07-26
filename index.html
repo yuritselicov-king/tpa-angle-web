@@ -301,8 +301,20 @@ const LS='tpa_angle_calc_v1';
 function loadStore(){try{return JSON.parse(localStorage.getItem(LS))||{}}catch(e){return{}}}
 function saveStore(s){try{localStorage.setItem(LS,JSON.stringify(s))}catch(e){}}
 let store=loadStore();
-store.cfg=store.cfg||{engineer:"",urls:{}};
-store.cfg.urls=Object.assign({save:"",hist:"",vision:"",logs:"",ref:""},store.cfg.urls||{});
+// Built-in backend defaults so a fresh browser/phone is pre-connected. Not
+// secret — the DB password and API key live only in n8n. Only empty fields are
+// filled; a value the user set in Setup is never overwritten. (ref = optional
+// reference-versioning endpoint, off by default.)
+const DEFAULT_URLS = {
+  save:   "https://bpaus.app.n8n.cloud/webhook/e030f320-3254-4e35-8bac-33bfb229bc90/save-reading",
+  hist:   "https://bpaus.app.n8n.cloud/webhook/c7b297a2-9c64-42d7-99e3-7909254655c9/get-history",
+  vision: "https://bpaus.app.n8n.cloud/webhook/98d543fb-5047-49f6-a1d3-bb9c90b6352d/extract-angles",
+  logs:   "",
+  ref:    ""
+};
+store.cfg = store.cfg || { engineer:"", urls:{} };
+store.cfg.urls = store.cfg.urls || {};
+['save','hist','vision','logs','ref'].forEach(k => { if (!store.cfg.urls[k]) store.cfg.urls[k] = DEFAULT_URLS[k]; });
 store.refByLine=store.refByLine||{};
 store.refMeta=store.refMeta||{};      // per line: {set_by, at, source} for reference versioning
 store.readings=store.readings||[];   // local fallback cache
