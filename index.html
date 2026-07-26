@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>RUGGLI TPA — Angle Calculator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap');
+  :root{
+    --bg:#0c0d11;--panel:#15171d;--panel2:#1b1e26;--card:#101820;--border:#262a34;
+    --accent:#5b9dff;--accent2:#ffb454;--ok:#4de8b2;--warn:#ffb454;--fail:#ff5d6c;
+    --nw:#a78bfa;--text:#e7e9ee;--muted:#828896;--dim:#30343f;
+    --base:#ff5d6c;--live:#5b9dff;
+    --mono:'Space Mono',ui-monospace,monospace;--sans:'Space Grotesk',system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body.lang-he{font-family:'Noto Sans Hebrew',var(--sans)}
+  .mono{font-family:var(--mono)}
+  html[dir="rtl"] .mono{direction:ltr;display:inline-block}
+  .wrap{max-width:720px;margin:0 auto;min-height:100vh}
+  .top{background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px;position:sticky;top:0;z-index:20}
+  .toprow{display:flex;align-items:center;gap:10px}
+  .brand{flex:1}
+  .kick{font-family:var(--mono);font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+  html[dir="rtl"] .kick{letter-spacing:normal}
+  .h1{font-size:15px;font-weight:700}
+  .lang-switch{display:flex;gap:5px}
+  .lang-btn{font-family:var(--mono);font-size:10px;padding:5px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+  .lang-btn.active{background:var(--accent);color:#06101f;border-color:var(--accent)}
+  .conn{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;margin-top:6px;color:var(--muted)}
+  .cdot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+  .cdot.live{background:var(--ok)} .cdot.local{background:var(--warn)}
+  .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:19}
+  .tab{flex:1;padding:11px 4px;border:none;background:transparent;cursor:pointer;font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);border-bottom:2px solid transparent}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+  .body{padding:12px 12px 60px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h3{font-size:11px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:10px}
+  html[dir="rtl"] .card h3{letter-spacing:normal}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px}
+  select,input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-family:var(--sans);font-size:13px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:9px;border:1.5px solid var(--accent);background:rgba(91,157,255,.14);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;padding:10px 12px;cursor:pointer;width:100%}
+  .btn.ghost{border-color:var(--border);background:var(--panel2);color:var(--muted)}
+  .btn.ok{border-color:var(--ok);background:rgba(77,232,178,.13);color:var(--ok)}
+  .btn.warn{border-color:var(--accent2);background:rgba(255,180,84,.13);color:var(--accent2)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btnrow{display:flex;gap:8px;margin-bottom:10px}
+  /* angle grid */
+  .ahead,.arow{display:grid;grid-template-columns:20px 1fr 44px 44px 44px 44px 40px;gap:5px;align-items:center}
+  .ahead{padding:4px 6px;position:sticky;top:0}
+  .ahead span{font-family:var(--mono);font-size:8px;color:var(--muted);text-transform:uppercase;text-align:center}
+  .ahead span.nm{text-align:start}
+  .arow{padding:5px 6px;border-bottom:1px solid var(--border)}
+  .arow .id{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:center}
+  .arow .nm{font-family:var(--mono);font-size:8.5px;font-weight:700;line-height:1.15}
+  .arow .nm .cr{color:var(--fail)}
+  .arow input{width:100%;text-align:center;padding:6px 2px;font-family:var(--mono);font-size:11px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px}
+  .arow input.ref{color:var(--base);border-color:rgba(255,93,108,.3)}
+  .arow input.live{color:var(--live);border-color:rgba(91,157,255,.3)}
+  .arow input:read-only{opacity:.7;background:transparent;border-color:transparent}
+  .dcell{font-family:var(--mono);font-size:9px;font-weight:700;text-align:center;border-radius:4px;padding:3px 0}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:9px;margin-top:8px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:4px}
+  .dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+  .summ{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px}
+  .stile{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px 4px;text-align:center}
+  .stile .n{font-family:var(--mono);font-size:19px;font-weight:700}
+  .stile .l{font-family:var(--mono);font-size:8px;color:var(--muted);text-transform:uppercase}
+  .note{font-size:11px;color:var(--muted);line-height:1.55}
+  .hint{font-size:10.5px;color:var(--muted);line-height:1.5;font-style:italic;margin-top:6px}
+  textarea{width:100%;min-height:90px;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px;font-family:var(--mono);font-size:11px;resize:vertical}
+  .hist{border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:8px;background:var(--card)}
+  .hist .hh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+  .hist .who{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent)}
+  .hist .when{font-family:var(--mono);font-size:9px;color:var(--muted)}
+  .hist .badge{font-family:var(--mono);font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px}
+  .chg{font-family:var(--mono);font-size:10px;color:var(--muted);padding:2px 0}
+  .chg b{color:var(--text)}
+  .chg .from{color:var(--base)} .chg .to{color:var(--ok)}
+  .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--accent);color:var(--text);padding:10px 16px;border-radius:10px;font-family:var(--mono);font-size:11px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%}
+  .toast.show{opacity:1}
+  .contract{font-family:var(--mono);font-size:9.5px;color:var(--muted);white-space:pre;overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;line-height:1.45}
+  code{font-family:var(--mono);color:var(--accent2);font-size:11px}
+  .file-in{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="toprow">
+      <div class="brand">
+        <div class="kick" data-i18n="kick"></div>
+        <div class="h1" data-i18n="title"></div>
+      </div>
+      <div class="lang-switch">
+        <button class="lang-btn active" id="lang-en" onclick="setLang('en')">EN</button>
+        <button class="lang-btn" id="lang-ru" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" id="lang-he" onclick="setLang('he')">עבר</button>
+      </div>
+    </div>
+    <div class="conn"><span class="cdot" id="cdot"></span><span id="conn-text"></span></div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" data-t="capture" data-i18n="tab_capture"></button>
+    <button class="tab" data-t="result" data-i18n="tab_result"></button>
+    <button class="tab" data-t="history" data-i18n="tab_history"></button>
+    <button class="tab" data-t="settings" data-i18n="tab_settings"></button>
+  </div>
+  <div class="body" id="body"></div>
+</div>
+<input type="file" accept="image/*" capture="environment" class="file-in" id="photo-in">
+<input type="file" accept="image/*,text/plain,.log,.csv" class="file-in" id="logs-in">
+<div class="toast" id="toast"></div>
+<script>
+// ═══════════ ANGLE MODEL (panel labels kept in machine English) ═══════════
+const ANGLES=[
+ {id:1,name:"STRING BLOWING AT FORMING TOOL",base:{on:80,off:360},crit:false},
+ {id:2,name:"STRING BLOW AT DRUM",base:{on:70,off:190},crit:false},
+ {id:3,name:"CHECK CORD + TAMPON",base:{on:280,off:320},crit:true},
+ {id:4,name:"CAMERA",base:{on:130,off:150},crit:true},
+ {id:5,name:"STRING BLOW PROCESS AT CAMERA",base:{on:200,off:300},crit:false},
+ {id:6,name:"PRESSING TOOL OUTPUSHER / AIR-CYL",base:{on:315,off:340},crit:false},
+ {id:7,name:"START TRANSFER TO MACHINE",base:{on:130,off:150},crit:false},
+ {id:8,name:"START TUBES CONVEYOR (MOTOR)",base:{on:310,off:340},crit:false},
+ {id:9,name:"PACKAGING DRUM CLAW DOWN/UP",base:{on:100,off:200},crit:false},
+ {id:10,name:"START TUBES TRANSFER",base:{on:0,off:0},crit:false},
+ {id:11,name:"WINDING DRUM REJECT",base:{on:10,off:60},crit:true},
+ {id:12,name:"STOP POSITION",base:{on:200,off:240},crit:false},
+ {id:13,name:"ANGLE 13 (SPARE)",base:{on:0,off:0},crit:false},
+ {id:14,name:"WINDING DRUM BLOWING CLEAR",base:{on:0,off:0},crit:false},
+ {id:15,name:"CLEANING SENSOR",base:{on:350,off:360},crit:true},
+];
+const LINES=[40,41,42,43,44,45];
+const TYPES=["REGULAR","SUPER","MINI","RESERVE"];
+
+// ═══════════ i18n ═══════════
+const i18n={
+ en:{kick:"RUGGLI TPA · Serial 8311 · Angle Machine",title:"Angle Calculator",
+  tab_capture:"Capture",tab_result:"Calculate",tab_history:"History",tab_settings:"Setup",
+  conn_local:"Local only — history saved on this device",conn_live:"Backend connected",conn_none:"No engineer set — open Setup",
+  who_title:"Who & what",engineer:"Engineer (required)",line:"Production line",type:"Tampon type",eng_ph:"Your name or ID",
+  ref_title:"Reference angle set (BASE)",ref_edit:"Edit reference",ref_lock:"Lock reference",ref_hint:"Factory BASE values. Edit only if this line's reference legitimately differs; changes are logged.",
+  live_title:"Live values from the machine",photo_btn:"Read from photo",logs_btn:"Attach logs",manual_hint:"Read the BLUE “ANGLE AT MACHINE” screen and type each ON/OFF. Or use Read from photo once the vision endpoint is set in Setup.",
+  col_ref:"REF",col_live:"LIVE",col_d:"Δ",
+  calc_btn:"Calculate drift",clear_btn:"Clear live",
+  res_title:"Drift result",res_none:"Enter live values, then Calculate.",
+  s_match:"Match",s_tiny:"Tiny",s_minor:"Minor",s_major:"Major",s_total:"Angles",
+  overall_ok:"Within tolerance",overall_warn:"Drift present — review",overall_bad:"Major drift — investigate before trusting live",
+  save_btn:"Save reading",save_hint:"Saves this reading with your name, the drift, and a diff of what changed since the last save for this line.",
+  changes_since:"Changes since last save",no_changes:"No change vs last saved reading.",first_reading:"First saved reading for this line.",
+  logs_title:"Machine logs",logs_ph:"Paste SPS / fault / change log text here, or use Attach logs.",logs_attached:"Logs attached to next save",
+  hist_title:"Saved readings",hist_none:"No saved readings yet for this line.",hist_load:"Refresh from backend",hist_source_local:"(local device)",hist_source_backend:"(backend)",
+  set_title:"Setup",set_eng:"Engineer identity",set_backend:"Backend endpoints (n8n → Postgres)",
+  url_save:"Save-reading webhook (POST)",url_hist:"Get-history webhook (GET/POST)",url_vision:"Vision-extract webhook (POST image)",url_logs:"Logs-parse webhook (optional)",
+  test_btn:"Test connection",export_btn:"Export all (JSON)",import_btn:"Import JSON",contract_title:"Backend payload contract",
+  saved_ok:"Reading saved",saved_local:"Saved locally (no backend set)",need_eng:"Set engineer name in Setup first",need_live:"Enter at least one live value",
+  photo_wait:"Extracting from photo…",photo_ok:"Photo extracted",photo_err:"Vision endpoint not set (Setup)",vision_fail:"Vision request failed",
+  test_ok:"Backend reachable",test_fail:"Backend not reachable",no_url:"Endpoint URL not set",copied:"Copied",
+  from:"from",to:"to",on:"ON",off:"OFF"},
+ ru:{kick:"RUGGLI TPA · Сер. 8311 · Меню углов",title:"Калькулятор углов",
+  tab_capture:"Ввод",tab_result:"Расчёт",tab_history:"История",tab_settings:"Настройки",
+  conn_local:"Только локально — история на этом устройстве",conn_live:"Сервер подключён",conn_none:"Инженер не указан — откройте Настройки",
+  who_title:"Кто и что",engineer:"Инженер (обязательно)",line:"Линия",type:"Тип тампона",eng_ph:"Ваше имя или ID",
+  ref_title:"Эталонные углы (БАЗА)",ref_edit:"Изменить эталон",ref_lock:"Заблокировать",ref_hint:"Заводские БАЗОВЫЕ значения. Меняйте, только если эталон линии действительно другой; изменения фиксируются.",
+  live_title:"Текущие значения с машины",photo_btn:"Считать с фото",logs_btn:"Прикрепить логи",manual_hint:"Считайте СИНИЙ экран «ANGLE AT MACHINE» и введите каждый ON/OFF. Или «Считать с фото» после настройки эндпоинта.",
+  col_ref:"БАЗА",col_live:"ТЕК",col_d:"Δ",
+  calc_btn:"Рассчитать отклонение",clear_btn:"Очистить",
+  res_title:"Результат отклонения",res_none:"Введите текущие значения и нажмите Рассчитать.",
+  s_match:"Совпад.",s_tiny:"Малое",s_minor:"Среднее",s_major:"Крупное",s_total:"Углы",
+  overall_ok:"В допуске",overall_warn:"Есть отклонение — проверьте",overall_bad:"Крупное отклонение — проверьте до доверия",
+  save_btn:"Сохранить",save_hint:"Сохраняет запись с вашим именем, отклонением и разницей с последним сохранением по этой линии.",
+  changes_since:"Изменения с последнего сохранения",no_changes:"Нет изменений с последней записи.",first_reading:"Первая запись для этой линии.",
+  logs_title:"Логи машины",logs_ph:"Вставьте текст SPS / отказов / изменений, или прикрепите файл.",logs_attached:"Логи будут прикреплены",
+  hist_title:"Сохранённые записи",hist_none:"Пока нет записей для этой линии.",hist_load:"Обновить с сервера",hist_source_local:"(локально)",hist_source_backend:"(сервер)",
+  set_title:"Настройки",set_eng:"Идентификация инженера",set_backend:"Эндпоинты (n8n → Postgres)",
+  url_save:"Вебхук сохранения (POST)",url_hist:"Вебхук истории (GET/POST)",url_vision:"Вебхук распознавания (POST фото)",url_logs:"Вебхук логов (опц.)",
+  test_btn:"Проверить связь",export_btn:"Экспорт (JSON)",import_btn:"Импорт JSON",contract_title:"Контракт данных",
+  saved_ok:"Запись сохранена",saved_local:"Сохранено локально",need_eng:"Сначала укажите инженера",need_live:"Введите хотя бы одно значение",
+  photo_wait:"Распознавание…",photo_ok:"Фото распознано",photo_err:"Эндпоинт не задан",vision_fail:"Ошибка распознавания",
+  test_ok:"Сервер доступен",test_fail:"Сервер недоступен",no_url:"URL не задан",copied:"Скопировано",
+  from:"с",to:"на",on:"ON",off:"OFF"},
+ he:{kick:"RUGGLI TPA · מס׳ 8311 · תפריט זוויות",title:"מחשבון זוויות",
+  tab_capture:"קליטה",tab_result:"חישוב",tab_history:"היסטוריה",tab_settings:"הגדרות",
+  conn_local:"מקומי בלבד — היסטוריה נשמרת במכשיר",conn_live:"השרת מחובר",conn_none:"לא הוגדר טכנאי — פתחו הגדרות",
+  who_title:"מי ומה",engineer:"טכנאי (חובה)",line:"קו ייצור",type:"סוג טמפון",eng_ph:"שם או מזהה",
+  ref_title:"סט זוויות ייחוס (בסיס)",ref_edit:"עריכת ייחוס",ref_lock:"נעילה",ref_hint:"ערכי בסיס מהיצרן. ערכו רק אם הייחוס של הקו באמת שונה; שינויים מתועדים.",
+  live_title:"ערכים חיים מהמכונה",photo_btn:"קריאה מתמונה",logs_btn:"צירוף לוגים",manual_hint:"קראו את מסך ה-ANGLE AT MACHINE הכחול והזינו כל ON/OFF. או קריאה מתמונה לאחר הגדרת נקודת הקצה.",
+  col_ref:"בסיס",col_live:"חי",col_d:"Δ",
+  calc_btn:"חישוב סטייה",clear_btn:"ניקוי",
+  res_title:"תוצאת סטייה",res_none:"הזינו ערכים חיים ולחצו חישוב.",
+  s_match:"תואם",s_tiny:"זעיר",s_minor:"בינוני",s_major:"גדול",s_total:"זוויות",
+  overall_ok:"בתוך הטולרנס",overall_warn:"קיימת סטייה — לבדוק",overall_bad:"סטייה גדולה — לבדוק לפני הסתמכות",
+  save_btn:"שמירת קריאה",save_hint:"שומר את הקריאה עם שמך, הסטייה, והפרש מהשמירה האחרונה בקו זה.",
+  changes_since:"שינויים מהשמירה האחרונה",no_changes:"אין שינוי מהקריאה האחרונה.",first_reading:"קריאה ראשונה לקו זה.",
+  logs_title:"לוגים של המכונה",logs_ph:"הדביקו טקסט לוג SPS / תקלות / שינויים, או צרפו קובץ.",logs_attached:"לוגים יצורפו לשמירה",
+  hist_title:"קריאות שמורות",hist_none:"אין עדיין קריאות לקו זה.",hist_load:"רענון מהשרת",hist_source_local:"(מקומי)",hist_source_backend:"(שרת)",
+  set_title:"הגדרות",set_eng:"זיהוי טכנאי",set_backend:"נקודות קצה (n8n → Postgres)",
+  url_save:"וובהוק שמירה (POST)",url_hist:"וובהוק היסטוריה (GET/POST)",url_vision:"וובהוק זיהוי תמונה (POST)",url_logs:"וובהוק לוגים (רשות)",
+  test_btn:"בדיקת חיבור",export_btn:"ייצוא (JSON)",import_btn:"ייבוא JSON",contract_title:"חוזה נתונים",
+  saved_ok:"הקריאה נשמרה",saved_local:"נשמר מקומית",need_eng:"הגדירו טכנאי בהגדרות",need_live:"הזינו לפחות ערך אחד",
+  photo_wait:"מזהה מתמונה…",photo_ok:"התמונה זוהתה",photo_err:"נקודת קצה לא הוגדרה",vision_fail:"בקשת זיהוי נכשלה",
+  test_ok:"השרת זמין",test_fail:"השרת לא זמין",no_url:"URL לא הוגדר",copied:"הועתק",
+  from:"מ-",to:"ל-",on:"ON",off:"OFF"},
+};
+const SEV_COLOR={match:"#4de8b2",tiny:"#5b9dff",minor:"#ffb454",major:"#ff5d6c"};
+
+// ═══════════ STATE ═══════════
+const LS='tpa_angle_calc_v1';
+function loadStore(){try{return JSON.parse(localStorage.getItem(LS))||{}}catch(e){return{}}}
+function saveStore(s){try{localStorage.setItem(LS,JSON.stringify(s))}catch(e){}}
+let store=loadStore();
+store.cfg=store.cfg||{engineer:"",urls:{save:"",hist:"",vision:"",logs:""}};
+store.refByLine=store.refByLine||{};
+store.readings=store.readings||[];   // local fallback cache
+let currentLang=store.cfg.lang||'en';
+let tab='capture';
+let line=store.cfg.lastLine||40; if(!LINES.includes(line))line=40;
+let tType=store.cfg.lastType||'SUPER';
+let live={}; ANGLES.forEach(a=>live[a.id]={on:'',off:''});
+let refEdit=false;
+let pendingLogs=null;
+let lastResult=null;
+let histSource='local';
+
+function refFor(ln){
+  if(store.refByLine[ln]) return store.refByLine[ln];
+  const r={}; ANGLES.forEach(a=>r[a.id]={on:a.base.on,off:a.base.off}); return r;
+}
+let ref=refFor(line);
+
+// ═══════════ HELPERS ═══════════
+const T=()=>i18n[currentLang];
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200);}
+function severity(d){return d>60?'major':d>15?'minor':d>0?'tiny':'match';}
+function driftFor(id){
+  const r=ref[id],l=live[id];
+  const lon=l.on===''?null:+l.on, loff=l.off===''?null:+l.off;
+  if(lon===null&&loff===null) return null;
+  const dOn=lon===null?0:Math.abs(lon-r.on), dOff=loff===null?0:Math.abs(loff-r.off);
+  const max=Math.max(dOn,dOff);
+  return {dOn,dOff,max,sev:severity(max)};
+}
+function computeAll(){
+  const out={}; let any=false;
+  ANGLES.forEach(a=>{const d=driftFor(a.id); out[a.id]=d; if(d)any=true;});
+  return any?out:null;
+}
+
+// ═══════════ TABS ═══════════
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));render();});
+
+function setLang(l){
+  currentLang=l; store.cfg.lang=l; saveStore(store);
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('lang-'+l).classList.add('active');
+  const root=document.getElementById('html-root');
+  root.setAttribute('lang',l); root.setAttribute('dir',l==='he'?'rtl':'ltr');
+  document.body.classList.toggle('lang-he',l==='he');
+  applyStatic(); render();
+}
+window.setLang=setLang;
+function applyStatic(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(T()[k])el.textContent=T()[k];});
+  updateConn();
+}
+function updateConn(){
+  const cdot=document.getElementById('cdot'),ct=document.getElementById('conn-text');
+  if(!store.cfg.engineer){cdot.className='cdot';ct.textContent=T().conn_none;}
+  else if(store.cfg.urls.save){cdot.className='cdot live';ct.textContent=T().conn_live+' · '+store.cfg.engineer;}
+  else{cdot.className='cdot local';ct.textContent=T().conn_local+' · '+store.cfg.engineer;}
+}
+
+// ═══════════ RENDERERS ═══════════
+function selectorsCard(){
+  return `<div class="card"><h3>${T().who_title}</h3>
+    <div class="field"><label>${T().engineer}</label>
+      <input type="text" id="eng" value="${store.cfg.engineer||''}" placeholder="${T().eng_ph}" oninput="setEng(this.value)"></div>
+    <div class="row2">
+      <div class="field"><label>${T().line}</label>
+        <select id="line" onchange="setLine(this.value)">${LINES.map(l=>`<option value="${l}" ${l==line?'selected':''}>L${l}</option>`).join('')}</select></div>
+      <div class="field"><label>${T().type}</label>
+        <select id="type" onchange="setType(this.value)">${TYPES.map(t=>`<option ${t==tType?'selected':''}>${t}</option>`).join('')}</select></div>
+    </div></div>`;
+}
+function angleGrid(){
+  return `<div class="ahead">
+      <span>#</span><span class="nm">ANGLE</span>
+      <span>${T().col_ref}<br>ON</span><span>${T().col_ref}<br>OFF</span>
+      <span>${T().col_live}<br>ON</span><span>${T().col_live}<br>OFF</span><span>${T().col_d}</span></div>`+
+    ANGLES.map(a=>{
+      const d=driftFor(a.id);
+      const dtxt=d?`<div class="dcell" id="d${a.id}" style="color:${SEV_COLOR[d.sev]};background:${SEV_COLOR[d.sev]}1c">${d.max}°</div>`:`<div class="dcell" id="d${a.id}" style="color:var(--dim)">–</div>`;
+      const ro=refEdit?'':'readonly';
+      return `<div class="arow">
+        <span class="id">${a.id}</span>
+        <span class="nm">${a.name}${a.crit?' <span class="cr">●</span>':''}</span>
+        <input class="ref" ${ro} inputmode="numeric" value="${ref[a.id].on}" onchange="setRef(${a.id},'on',this.value)">
+        <input class="ref" ${ro} inputmode="numeric" value="${ref[a.id].off}" onchange="setRef(${a.id},'off',this.value)">
+        <input class="live" inputmode="numeric" value="${live[a.id].on}" placeholder="–" onchange="setLive(${a.id},'on',this.value)">
+        <input class="live" inputmode="numeric" value="${live[a.id].off}" placeholder="–" onchange="setLive(${a.id},'off',this.value)">
+        ${dtxt}</div>`;
+    }).join('');
+}
+function captureView(){
+  return selectorsCard()+
+   `<div class="card"><h3>${T().ref_title}</h3>
+      <button class="btn ghost" onclick="toggleRefEdit()">${refEdit?T().ref_lock:T().ref_edit}</button>
+      <div class="hint">${T().ref_hint}</div></div>
+    <div class="card"><h3>${T().live_title}</h3>
+      <div class="btnrow">
+        <button class="btn" onclick="doPhoto()">📷 ${T().photo_btn}</button>
+        <button class="btn ghost" onclick="doLogs()">📄 ${T().logs_btn}</button>
+      </div>
+      <div style="overflow-x:auto">${angleGrid()}</div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--base)"></span>${T().col_ref}</span>
+        <span><span class="dot" style="background:var(--live)"></span>${T().col_live}</span>
+        <span class="cr" style="color:var(--fail)">●</span> crit</span>
+      </div>
+      <div class="hint">${T().manual_hint}</div>
+      ${pendingLogs!=null?`<div class="hint" style="color:var(--ok)">✓ ${T().logs_attached}</div>`:''}
+      <div class="btnrow" style="margin-top:12px">
+        <button class="btn ghost" onclick="clearLive()">${T().clear_btn}</button>
+        <button class="btn ok" onclick="tab='result';document.querySelectorAll('.tab')[1].click();">${T().calc_btn} →</button>
+      </div></div>`;
+}
+function resultView(){
+  const res=computeAll();
+  if(!res) return `<div class="card"><div class="note">${T().res_none}</div></div>`;
+  lastResult=res;
+  const counts={match:0,tiny:0,minor:0,major:0};
+  ANGLES.forEach(a=>{if(res[a.id])counts[res[a.id].sev]++;});
+  const overall= counts.major>0?['bad','overall_bad','#ff5d6c']: counts.minor>0?['warn','overall_warn','#ffb454']:['ok','overall_ok','#4de8b2'];
+  const changes=diffVsLast();
+  return `<div class="card"><h3>${T().res_title} — L${line}</h3>
+    <div class="summ">
+      <div class="stile"><div class="n" style="color:var(--ok)">${counts.match}</div><div class="l">${T().s_match}</div></div>
+      <div class="stile"><div class="n" style="color:var(--live)">${counts.tiny}</div><div class="l">${T().s_tiny}</div></div>
+      <div class="stile"><div class="n" style="color:var(--warn)">${counts.minor}</div><div class="l">${T().s_minor}</div></div>
+      <div class="stile"><div class="n" style="color:var(--fail)">${counts.major}</div><div class="l">${T().s_major}</div></div>
+    </div>
+    <div style="padding:10px 12px;border-radius:9px;text-align:center;font-family:var(--mono);font-weight:700;font-size:12px;color:${overall[2]};background:${overall[2]}18;border:1px solid ${overall[2]}55">${T()[overall[1]]}</div>
+   </div>
+   <div class="card"><h3>${T().col_d} per angle</h3>
+     ${ANGLES.filter(a=>res[a.id]).sort((x,y)=>res[y.id].max-res[x.id].max).map(a=>{
+        const d=res[a.id];const c=SEV_COLOR[d.sev];
+        return `<div class="arow" style="grid-template-columns:20px 1fr 70px 70px 44px">
+          <span class="id">${a.id}</span><span class="nm">${a.name}</span>
+          <span class="mono" style="font-size:9px;color:var(--base);text-align:center">${ref[a.id].on}/${ref[a.id].off}</span>
+          <span class="mono" style="font-size:9px;color:var(--live);text-align:center">${live[a.id].on||'–'}/${live[a.id].off||'–'}</span>
+          <div class="dcell" style="color:${c};background:${c}1c">${d.max}°</div></div>`;}).join('')}
+   </div>
+   <div class="card"><h3>${T().changes_since}</h3>
+     ${changes===null?`<div class="note">${T().first_reading}</div>`:
+       changes.length===0?`<div class="note">${T().no_changes}</div>`:
+       changes.map(c=>`<div class="chg"><b>#${c.angle} ${c.name}</b> ${T()[c.field]}: <span class="from">${c.from}°</span> → <span class="to">${c.to}°</span></div>`).join('')}
+   </div>
+   <div class="card">
+     <button class="btn ok" onclick="saveReading()">💾 ${T().save_btn}</button>
+     <div class="hint">${T().save_hint}</div>
+   </div>`;
+}
+function historyView(){
+  const rows=histFor(line);
+  return `<div class="card"><h3>${T().hist_title} — L${line} <span class="mono" style="color:var(--muted);font-size:9px">${histSource==='backend'?T().hist_source_backend:T().hist_source_local}</span></h3>
+    <button class="btn ghost" onclick="loadHistory()">↻ ${T().hist_load}</button></div>
+    ${rows.length===0?`<div class="card"><div class="note">${T().hist_none}</div></div>`:
+      rows.map(r=>{
+        const ov=r.anomaly&&r.anomaly.major>0?'#ff5d6c':r.anomaly&&r.anomaly.minor>0?'#ffb454':'#4de8b2';
+        return `<div class="hist">
+          <div class="hh"><span class="who">${r.engineer_name||r.engineer_id||'—'}</span>
+            <span class="when">${new Date(r.timestamp).toLocaleString()}</span>
+            <span class="badge" style="color:${ov};background:${ov}22">${(r.anomaly?r.anomaly.major:0)} major</span>
+            <span class="badge" style="color:var(--muted);background:var(--panel2)">${r.source||'manual'}</span></div>
+          ${(r.changes_since_previous&&r.changes_since_previous.length)?
+            r.changes_since_previous.map(c=>`<div class="chg"><b>#${c.angle}</b> ${T()[c.field]||c.field}: <span class="from">${c.from}°</span>→<span class="to">${c.to}°</span></div>`).join('')
+            :`<div class="chg" style="color:var(--dim)">${T().no_changes}</div>`}
+        </div>`;}).join('')}`;
+}
+function settingsView(){
+  const u=store.cfg.urls;
+  return `<div class="card"><h3>${T().set_eng}</h3>
+      <div class="field"><label>${T().engineer}</label><input type="text" value="${store.cfg.engineer||''}" placeholder="${T().eng_ph}" oninput="setEng(this.value)"></div></div>
+    <div class="card"><h3>${T().set_backend}</h3>
+      <div class="field"><label>${T().url_save}</label><input type="text" value="${u.save||''}" placeholder="https://…/webhook/save-reading" oninput="setUrl('save',this.value)"></div>
+      <div class="field"><label>${T().url_hist}</label><input type="text" value="${u.hist||''}" placeholder="https://…/webhook/get-history" oninput="setUrl('hist',this.value)"></div>
+      <div class="field"><label>${T().url_vision}</label><input type="text" value="${u.vision||''}" placeholder="https://…/webhook/extract-angles" oninput="setUrl('vision',this.value)"></div>
+      <div class="field"><label>${T().url_logs}</label><input type="text" value="${u.logs||''}" placeholder="https://…/webhook/parse-logs" oninput="setUrl('logs',this.value)"></div>
+      <div class="btnrow"><button class="btn ghost" onclick="testConn()">${T().test_btn}</button></div>
+      <div class="btnrow">
+        <button class="btn ghost" onclick="exportAll()">⭳ ${T().export_btn}</button>
+        <button class="btn ghost" onclick="document.getElementById('imp').click()">⭱ ${T().import_btn}</button>
+        <input type="file" id="imp" class="file-in" accept="application/json" onchange="importAll(this)">
+      </div></div>
+    <div class="card"><h3>${T().contract_title}</h3>
+      <div class="contract">${CONTRACT}</div></div>`;
+}
+function render(){
+  const b=document.getElementById('body');
+  b.innerHTML = tab==='capture'?captureView():tab==='result'?resultView():tab==='history'?historyView():settingsView();
+  window.scrollTo(0,0);
+}
+
+// ═══════════ ACTIONS ═══════════
+function setEng(v){store.cfg.engineer=v;saveStore(store);updateConn();}
+function setLine(v){line=+v;store.cfg.lastLine=line;ref=refFor(line);clearLiveSilent();saveStore(store);render();}
+function setType(v){tType=v;store.cfg.lastType=v;saveStore(store);}
+function setRef(id,f,v){ref[id][f]=+v||0;store.refByLine[line]=ref;saveStore(store);}
+function setLive(id,f,v){live[id][f]=v.trim();patchDelta(id);}
+function patchDelta(id){
+  const cell=document.getElementById('d'+id); if(!cell)return;
+  const d=driftFor(id);
+  if(d){cell.textContent=d.max+'°';cell.style.color=SEV_COLOR[d.sev];cell.style.background=SEV_COLOR[d.sev]+'1c';}
+  else{cell.textContent='–';cell.style.color='var(--dim)';cell.style.background='transparent';}
+}
+function clearLiveSilent(){ANGLES.forEach(a=>live[a.id]={on:'',off:''});}
+function clearLive(){clearLiveSilent();render();}
+function toggleRefEdit(){refEdit=!refEdit;render();}
+window.setEng=setEng;window.setLine=setLine;window.setType=setType;window.setRef=setRef;window.setLive=setLive;window.clearLive=clearLive;window.toggleRefEdit=toggleRefEdit;
+
+function lastSaved(){const r=histFor(line);return r.length?r[0]:null;}
+function diffVsLast(){
+  const prev=lastSaved(); if(!prev||!prev.live) return null;
+  const ch=[];
+  ANGLES.forEach(a=>{
+    const l=live[a.id], p=prev.live[a.id]||{on:null,off:null};
+    ['on','off'].forEach(f=>{
+      if(l[f]===''||l[f]==null) return;
+      const nv=+l[f]; if(p[f]!=null && +p[f]!==nv) ch.push({angle:a.id,name:a.name,field:f,from:+p[f],to:nv});
+    });
+  });
+  return ch;
+}
+function buildPayload(){
+  const res=computeAll()||{};
+  const drift={}; let major=0,minor=0; const flags=[];
+  ANGLES.forEach(a=>{if(res[a.id]){drift[a.id]=res[a.id];if(res[a.id].sev==='major'){major++;flags.push({angle:a.id,name:a.name,delta:res[a.id].max});}if(res[a.id].sev==='minor')minor++;}});
+  const changes=diffVsLast();
+  const liveClean={}; ANGLES.forEach(a=>liveClean[a.id]={on:live[a.id].on===''?null:+live[a.id].on,off:live[a.id].off===''?null:+live[a.id].off});
+  return {
+    machine_type:"ruggli_tpa_angle", machine_serial:"8311", line:"L"+line,
+    engineer_id:store.cfg.engineer, engineer_name:store.cfg.engineer,
+    timestamp:new Date().toISOString(), tampon_type:tType, source:pendingLogs&&pendingLogs.src==='photo'?'photo':'manual',
+    reference_set:ref, live:liveClean, drift,
+    anomaly:{is_anomaly:major>0||minor>0,major,minor,flags},
+    changes_since_previous:changes||[],
+    logs:pendingLogs?{text:pendingLogs.text||'',attached:true}:{text:'',attached:false},
+    image_ref:null, app_version:"1.0"
+  };
+}
+async function saveReading(){
+  if(!store.cfg.engineer){toast(T().need_eng);return;}
+  const res=computeAll(); if(!res){toast(T().need_live);return;}
+  const payload=buildPayload();
+  payload.id='local-'+Date.now();
+  // local cache first (always)
+  store.readings.unshift(payload); saveStore(store);
+  pendingLogs=null;
+  if(store.cfg.urls.save){
+    try{
+      const r=await fetch(store.cfg.urls.save,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(r.ok){toast(T().saved_ok);} else {toast(T().saved_local);}
+    }catch(e){toast(T().saved_local);}
+  } else {toast(T().saved_local);}
+  tab='history';document.querySelectorAll('.tab')[2].click();
+}
+window.saveReading=saveReading;
+
+function histFor(ln){
+  const key='L'+ln;
+  return (store.readings||[]).filter(r=>r.line===key).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+}
+async function loadHistory(){
+  if(!store.cfg.urls.hist){histSource='local';render();return;}
+  try{
+    const r=await fetch(store.cfg.urls.hist+(store.cfg.urls.hist.includes('?')?'&':'?')+'line=L'+line);
+    if(r.ok){const data=await r.json();const arr=Array.isArray(data)?data:(data.readings||[]);
+      // merge backend into local cache (dedupe by id)
+      const ids=new Set(store.readings.map(x=>x.id));
+      arr.forEach(x=>{if(!ids.has(x.id))store.readings.push(x);});
+      saveStore(store);histSource='backend';toast(T().test_ok);}
+    else{histSource='local';toast(T().test_fail);}
+  }catch(e){histSource='local';toast(T().test_fail);}
+  render();
+}
+window.loadHistory=loadHistory;
+
+// Photo → vision webhook
+function doPhoto(){
+  if(!store.cfg.urls.vision){toast(T().photo_err);tab='settings';document.querySelectorAll('.tab')[3].click();return;}
+  document.getElementById('photo-in').click();
+}
+window.doPhoto=doPhoto;
+document.getElementById('photo-in').onchange=async function(){
+  const f=this.files[0]; if(!f)return;
+  toast(T().photo_wait);
+  const b64=await fileB64(f);
+  try{
+    const r=await fetch(store.cfg.urls.vision,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({machine_type:"ruggli_tpa_angle",line:"L"+line,image_base64:b64,mime:f.type})});
+    if(!r.ok)throw 0;
+    const data=await r.json();
+    // expected: { angles: { "1":{on,off,confidence}, ... } }
+    const ang=data.angles||data;
+    ANGLES.forEach(a=>{const v=ang[a.id]||ang[String(a.id)];if(v){if(v.on!=null)live[a.id].on=String(v.on);if(v.off!=null)live[a.id].off=String(v.off);}});
+    if(data.source!=='manual')pendingLogs=Object.assign(pendingLogs||{},{src:'photo'});
+    toast(T().photo_ok);render();
+  }catch(e){toast(T().vision_fail);}
+  this.value='';
+};
+// Logs (separate button): attach text or file
+function doLogs(){document.getElementById('logs-in').click();}
+window.doLogs=doLogs;
+document.getElementById('logs-in').onchange=async function(){
+  const f=this.files[0]; if(!f)return;
+  if(f.type.startsWith('image')){const b64=await fileB64(f);pendingLogs={text:'[image log attached]',image:b64,src:'logs-image'};}
+  else{const txt=await f.text();pendingLogs={text:txt,src:'logs-text'};}
+  toast(T().logs_attached);render();
+  this.value='';
+};
+
+function fileB64(f){return new Promise(res=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.readAsDataURL(f);});}
+function setUrl(k,v){store.cfg.urls[k]=v.trim();saveStore(store);updateConn();}
+window.setUrl=setUrl;
+async function testConn(){
+  const u=store.cfg.urls.hist||store.cfg.urls.save;
+  if(!u){toast(T().no_url);return;}
+  try{const r=await fetch(u,{method:'GET'});toast(r.ok?T().test_ok:T().test_fail);}catch(e){toast(T().test_fail);}
+}
+window.testConn=testConn;
+function exportAll(){
+  const blob=new Blob([JSON.stringify(store,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tpa_angle_history_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+}
+window.exportAll=exportAll;
+function importAll(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);store=Object.assign(store,d);saveStore(store);toast('OK');render();}catch(e){toast('ERR');}};r.readAsText(f);}
+window.importAll=importAll;
+
+const CONTRACT=`POST {save}  →  Postgres INSERT
+{
+  machine_type:"ruggli_tpa_angle", machine_serial:"8311",
+  line:"L47", engineer_id, engineer_name, timestamp(ISO),
+  tampon_type, source:"manual"|"photo",
+  reference_set:{ "3":{on,off}, ... },
+  live:{ "3":{on,off|null}, ... },
+  drift:{ "3":{dOn,dOff,max,sev}, ... },
+  anomaly:{ is_anomaly,major,minor,flags[] },
+  changes_since_previous:[ {angle,field,from,to} ],
+  logs:{ text, attached }, image_ref
+}
+GET  {hist}?line=L47  →  [ reading, ... ] (newest first)
+POST {vision}  { image_base64, line }
+     →  { angles:{ "3":{on,off,confidence}, ... } }
+POST {logs}    { text|image_base64 } → { parsed }`;
+
+// init
+applyStatic(); setLang(currentLang);
+
+</script>
+</body>
+</html>
