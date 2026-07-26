@@ -636,38 +636,33 @@ document.getElementById('photo-in').onchange=async function(){
   const files=[...this.files]; this.value=''; if(!files.length)return;
   const mode=photoMode; photoMode='live';
   toast(T().photo_wait);
-  let ok=0,fail=0,low=0;
-  // Each photo is posted to the vision webhook; results merge (later photos win per angle).
-  for(const f of files){
-    let data;
-    try{
-      const b64=await fileB64(f);
-      const r=await fetch(store.cfg.urls.vision,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({machine_type:"ruggli_tpa_angle",line:"L"+line,image_base64:b64,mime:f.type})});
-      if(!r.ok)throw 0;
-      data=await r.json();
-    }catch(e){fail++;continue;}
-    const ang=data.angles||data;   // expected { "3":{on,off,confidence}, ... }
-    ANGLES.forEach(a=>{
-      const v=ang[a.id]||ang[String(a.id)]; if(!v)return;
-      const conf=v.confidence==null?1:+v.confidence;   // no confidence → treat as certain
-      if(mode==='ref'){
-        if(v.on!=null)ref[a.id].on=+v.on||0;
-        if(v.off!=null)ref[a.id].off=+v.off||0;
-      }else{
-        lowConf[a.id]=lowConf[a.id]||{on:false,off:false};
-        if(v.on!=null){live[a.id].on=String(v.on);lowConf[a.id].on=conf<0.6;}
-        if(v.off!=null){live[a.id].off=String(v.off);lowConf[a.id].off=conf<0.6;}
-        if(conf<0.6)low++;
-      }
-    });
-    if(mode==='live'&&data.source!=='manual')pendingLogs=Object.assign(pendingLogs||{},{src:'photo'});
-    ok++;
-  }
-  if(mode==='ref'){
-    if(ok){commitRef('photo');toast(T().ref_saved);}else{toast(T().vision_fail);}
-  }else if(!ok){toast(T().vision_fail);}
-  else{toast(low>0?(T().photo_ok+' · '+low+' '+T().lowconf_note):T().photo_ok);}
+  // The angle menu spans up to three screens (1–6, 7–12, 13–15). Batch every
+  // selected photo into ONE vision call — the backend reads the images array.
+  let data;
+  try{
+    const images=await Promise.all(files.map(async f=>({image_base64:await fileB64(f),mime:f.type})));
+    const r=await fetch(store.cfg.urls.vision,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({machine_type:"ruggli_tpa_angle",line:"L"+line,images})});
+    if(!r.ok)throw 0;
+    data=await r.json();
+  }catch(e){toast(T().vision_fail);return;}
+  const ang=data.angles||data;   // expected { "3":{on,off,confidence}, ... }
+  let filled=0;
+  ANGLES.forEach(a=>{
+    const v=ang[a.id]||ang[String(a.id)]; if(!v)return;
+    const conf=v.confidence==null?1:+v.confidence;   // no confidence → treat as certain
+    if(mode==='ref'){
+      if(v.on!=null){ref[a.id].on=+v.on||0;filled++;}
+      if(v.off!=null){ref[a.id].off=+v.off||0;filled++;}
+    }else{
+      lowConf[a.id]=lowConf[a.id]||{on:false,off:false};
+      if(v.on!=null){live[a.id].on=String(v.on);lowConf[a.id].on=conf<0.6;filled++;}
+      if(v.off!=null){live[a.id].off=String(v.off);lowConf[a.id].off=conf<0.6;filled++;}
+    }
+  });
+  if(mode==='live'&&data.source!=='manual')pendingLogs=Object.assign(pendingLogs||{},{src:'photo'});
+  if(mode==='ref'){commitRef('photo');toast(T().ref_saved);}
+  else{toast(T().photo_ok+' ('+files.length+'→'+filled+'×)');}
   render();
 };
 // Logs (separate button): attach text or file
@@ -711,7 +706,7 @@ const CONTRACT=`POST {save}  →  Postgres INSERT (angle_readings)
   logs:{ text, attached }, image_ref
 }
 GET  {hist}?line=L40  →  [ reading, ... ] (newest first)
-POST {vision}  { machine_type, line, image_base64, mime }
+POST {vision}  { machine_type, line, images:[{image_base64,mime},…] }
      →  { angles:{ "3":{on,off,confidence}, ... }, screen, source }
 POST {ref}     →  angle_references (versioned BASE per line)
 { machine_type, machine_serial, line, set_by,

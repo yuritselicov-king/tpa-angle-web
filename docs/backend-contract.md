@@ -75,16 +75,20 @@ The client dedupes backend rows against its local cache by `id`.
 
 ## 3. `POST …/webhook/extract-angles`  (vision)
 
-One image → extracted angles. Called **once per photo**; the client merges
-results across multiple photos (later photos win per angle).
+One or more screen photos → extracted angles, in a **single call**. The angle
+menu spans up to three screens (angles 1–6, 7–12, 13–15), so the client sends
+1–3 images together in the `images` array; the backend reads them all and
+returns one merged `angles` object.
 
 **Request body:**
 ```jsonc
 {
   "machine_type": "ruggli_tpa_angle",
   "line": "L40",
-  "image_base64": "<base64 without data: prefix>",
-  "mime": "image/jpeg"
+  "images": [
+    { "image_base64": "<base64 without data: prefix>", "mime": "image/jpeg" },
+    { "image_base64": "…", "mime": "image/jpeg" }
+  ]
 }
 ```
 
